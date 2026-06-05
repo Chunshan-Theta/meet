@@ -1,0 +1,72 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String         @id @default(cuid())
+  email          String         @unique
+  password       String
+  name           String
+  role           String         @default("STUDENT")
+  teacherTAs     TeacherTA[]    @relation("Teacher")
+  taTeachers     TeacherTA[]    @relation("TA")
+  availabilities Availability[]
+  bookingsHost   Booking[]      @relation("Host")
+  bookingsGuest  Booking[]      @relation("Guest")
+}
+
+model TeacherTA {
+  teacherId String
+  taId      String
+  teacher   User   @relation("Teacher", fields: [teacherId], references: [id])
+  ta        User   @relation("TA", fields: [taId], references: [id])
+
+  @@id([teacherId, taId])
+}
+
+model Availability {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  isRecurring  Boolean  @default(true)
+  dayOfWeek    Int?
+  specificDate String?
+  startTime    String
+  endTime      String
+  capacity     Int      @default(1)
+}
+
+model Booking {
+  id              String   @id @default(cuid())
+  hostId          String
+  guestId         String
+  host            User     @relation("Host", fields: [hostId], references: [id])
+  guest           User     @relation("Guest", fields: [guestId], references: [id])
+  date            String
+  startTime       String
+  endTime         String
+  status          String   @default("PENDING")
+  category        String
+  topic           String
+  currentProgress String
+  expectedOutcome String
+  attachmentUrl   String?
+  rejectionReason String?
+  createdAt       DateTime @default(now())
+  feedback        Feedback?
+}
+
+model Feedback {
+  id          String   @id @default(cuid())
+  bookingId   String   @unique
+  booking     Booking  @relation(fields: [bookingId], references: [id])
+  summary     String
+  actionItems String
+  goals       String
+  createdAt   DateTime @default(now())
+}
