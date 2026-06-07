@@ -43,10 +43,8 @@ COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/next.config.mjs ./next.config.mjs
 
-# 复制 node_modules 中的 Prisma 和其他运行时依赖
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+# 复制完整的 node_modules（Prisma 需要所有依赖）
+COPY --from=builder /app/node_modules ./node_modules
 
 # 复制构建输出
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
@@ -61,6 +59,7 @@ EXPOSE 3000
 
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
+ENV AUTH_TRUST_HOST=true
 
-# 启动脚本（跳过迁移，直接启动服务器）
-CMD ["node", "server.js"]
+# 启动脚本（运行迁移后启动服务器）
+CMD ["sh", "-c", "npx prisma migrate deploy && node server.js"]
