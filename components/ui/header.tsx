@@ -1,6 +1,10 @@
 import Link from "next/link";
+import { auth, signOut } from "@/auth";
+import { Button } from "@/components/ui/button";
 
-export default function Header() {
+export default async function Header() {
+  const session = await auth();
+
   return (
     <header className="bg-white border-b">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
@@ -14,7 +18,21 @@ export default function Header() {
         </div>
 
         <div className="flex items-center space-x-3 text-sm">
-          <Link href="/login" className="px-3 py-1 rounded-md bg-slate-100 hover:bg-slate-200">登入</Link>
+          {session?.user ? (
+            <form
+              action={async () => {
+                "use server";
+                await signOut({ redirectTo: "/" });
+              }}
+            >
+              <Button type="submit" variant="outline">登出</Button>
+            </form>
+          ) : (
+            <>
+              <Link href="/login" className="px-3 py-1 rounded-md bg-slate-100 hover:bg-slate-200">登入</Link>
+              <Link href="/register" className="px-3 py-1 rounded-md hover:bg-slate-100">註冊</Link>
+            </>
+          )}
         </div>
       </div>
     </header>

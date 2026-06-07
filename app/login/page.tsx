@@ -17,9 +17,11 @@ export default function LoginPage({ searchParams }: { searchParams: { error?: st
       });
     } catch (error) {
       if (error instanceof AuthError) {
+        console.error("Login error:", error);
         redirect(`/login?error=${encodeURIComponent("帳號或密碼錯誤")}`);
       }
-      // throw error;
+
+      throw error;
     }
   }
 
