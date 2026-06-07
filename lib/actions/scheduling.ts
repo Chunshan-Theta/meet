@@ -70,6 +70,23 @@ export async function getAvailableSlots(hostId: string, dateString: string) {
   return buildSlots(availabilities, bookings);
 }
 
+export async function getAvailabilitySummary(hostId: string, startDate: string, endDate: string) {
+  const start = new Date(`${startDate}T00:00:00`);
+  const end = new Date(`${endDate}T00:00:00`);
+  const summary: Record<string, { availableSlots: number; totalSlots: number }> = {};
+
+  for (const date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
+    const dateKey = date.toISOString().slice(0, 10);
+    const slots = await getAvailableSlots(hostId, dateKey);
+    summary[dateKey] = {
+      availableSlots: slots.filter((slot) => slot.available).length,
+      totalSlots: slots.length,
+    };
+  }
+
+  return summary;
+}
+
 export async function createBooking(data: CreateBookingInput) {
   if (!hasRequiredBookingFields(data)) {
     throw new Error("category, currentProgress, expectedOutcome are required");
