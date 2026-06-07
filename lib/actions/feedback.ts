@@ -114,3 +114,29 @@ export async function getFeedbackByBookingId(
     return { success: false, error: '取得反饋失敗' };
   }
 }
+
+export async function getAllFeedbacks() {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return [];
+    }
+
+    const feedbacks = await prisma.feedback.findMany({
+      include: {
+        booking: {
+          include: {
+            host: { select: { id: true, name: true } },
+            guest: { select: { id: true, name: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return feedbacks;
+  } catch (error) {
+    console.error('Get all feedbacks error:', error);
+    return [];
+  }
+}

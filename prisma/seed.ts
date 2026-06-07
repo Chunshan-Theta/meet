@@ -16,7 +16,7 @@ async function main() {
     create: {
       email: 'teacher@example.com',
       password: hashedPassword,
-      name: '張教授',
+      name: '吳教授',
       role: Role.TEACHER,
     },
   });

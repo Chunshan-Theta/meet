@@ -43,6 +43,14 @@ export function Navbar({ user }: NavbarProps) {
                   行事曆
                 </Button>
               </Link>
+              <Link href="/feedback-wall">
+                <Button
+                  variant={isActive('/feedback-wall') ? 'default' : 'ghost'}
+                  size="sm"
+                >
+                  反饋牆
+                </Button>
+              </Link>
               {user.role === Role.TEACHER && (
                 <>
                   <Link href="/dashboard/schedule">
