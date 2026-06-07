@@ -35,5 +35,5 @@ Test accounts:
 ## Docker
 ```bash
 docker build -t meet .
-docker run -p 3000:3000 -e AUTH_SECRET=replace-me meet
+docker run --rm -p 3000:3000 --env-file .env meet
 ```
