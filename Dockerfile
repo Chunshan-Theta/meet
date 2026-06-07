@@ -1,5 +1,5 @@
 # 使用官方 Node.js 镜像作为基础镜像
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 
 # 安装依赖阶段
 FROM base AS deps
@@ -43,6 +43,11 @@ COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/next.config.mjs ./next.config.mjs
 
+# 复制 node_modules 中的 Prisma 和其他运行时依赖
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+
 # 复制构建输出
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
@@ -57,5 +62,5 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# 启动脚本
-CMD ["sh", "-c", "npx prisma migrate deploy && node server.js"]
+# 启动脚本（跳过迁移，直接启动服务器）
+CMD ["node", "server.js"]
