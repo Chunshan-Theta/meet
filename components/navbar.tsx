@@ -1,5 +1,6 @@
 'use client';
 
+import { useTransition } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { logoutUser } from '@/lib/actions/auth';
@@ -15,8 +16,15 @@ interface NavbarProps {
 
 export function Navbar({ user }: NavbarProps) {
   const pathname = usePathname();
+  const [isPending, startTransition] = useTransition();
 
   const isActive = (path: string) => pathname === path;
+
+  const handleLogout = () => {
+    startTransition(async () => {
+      await logoutUser();
+    });
+  };
 
   return (
     <nav className="border-b bg-white">
@@ -79,11 +87,14 @@ export function Navbar({ user }: NavbarProps) {
             <span className="text-sm text-gray-600">
               {user.name} ({user.role === Role.TEACHER ? '教師' : '學生'})
             </span>
-            <form action={logoutUser}>
-              <Button type="submit" variant="outline" size="sm">
-                登出
-              </Button>
-            </form>
+            <Button 
+              onClick={handleLogout} 
+              variant="outline" 
+              size="sm"
+              disabled={isPending}
+            >
+              {isPending ? '登出中...' : '登出'}
+            </Button>
           </div>
         </div>
       </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Select,
@@ -15,6 +15,9 @@ import { CreateBookingModal } from '@/components/modals/create-booking-modal';
 import { BookingDetailModal } from '@/components/modals/booking-detail-modal';
 import { Role } from '@/lib/constants';
 import type { AvailabilityWithCapacity } from '@/lib/actions/scheduling';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+
+type ViewMode = '2week' | 'month';
 
 interface CalendarViewProps {
   teachers: Array<{ id: string; name: string }>;
@@ -36,6 +39,7 @@ export function CalendarView({
   currentUserRole,
 }: CalendarViewProps) {
   const router = useRouter();
+  const [viewMode, setViewMode] = useState<ViewMode>('2week');
   const [selectedAvailability, setSelectedAvailability] =
     useState<AvailabilityWithCapacity | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -64,17 +68,93 @@ export function CalendarView({
     }
   };
 
-  const groupedByDate = availabilities.reduce((acc, avail) => {
-    if (!acc[avail.date]) {
-      acc[avail.date] = [];
+  // Navigate to previous/next period
+  const navigatePeriod = (direction: 'prev' | 'next') => {
+    const start = new Date(startDate);
+    const days = viewMode === '2week' ? 14 : 30;
+    
+    if (direction === 'prev') {
+      start.setDate(start.getDate() - days);
+    } else {
+      start.setDate(start.getDate() + days);
     }
-    acc[avail.date].push(avail);
-    return acc;
-  }, {} as Record<string, AvailabilityWithCapacity[]>);
+    
+    const end = new Date(start);
+    end.setDate(start.getDate() + days - 1);
+    
+    const params = new URLSearchParams();
+    params.set('teacherId', selectedTeacherId);
+    params.set('startDate', start.toISOString().split('T')[0]);
+    params.set('endDate', end.toISOString().split('T')[0]);
+    router.push(`/shared-calendar?${params.toString()}`);
+  };
+
+  // Change view mode
+  const changeViewMode = (mode: ViewMode) => {
+    setViewMode(mode);
+    
+    const start = new Date(startDate);
+    start.setDate(start.getDate() - start.getDay()); // Start from Sunday
+    const days = mode === '2week' ? 14 : 30;
+    const end = new Date(start);
+    end.setDate(start.getDate() + days - 1);
+    
+    const params = new URLSearchParams();
+    params.set('teacherId', selectedTeacherId);
+    params.set('startDate', start.toISOString().split('T')[0]);
+    params.set('endDate', end.toISOString().split('T')[0]);
+    router.push(`/shared-calendar?${params.toString()}`);
+  };
+
+  // Get period display
+  const periodDisplay = useMemo(() => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const startMonth = start.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long' });
+    const endMonth = end.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long' });
+    
+    if (startMonth === endMonth) {
+      return startMonth;
+    }
+    return `${startMonth} - ${endMonth}`;
+  }, [startDate, endDate]);
+
+  // Generate calendar grid
+  const calendarGrid = useMemo(() => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    // Add empty cells for days before the start date to align with weekday
+    const startDayOfWeek = start.getDay(); // 0 = Sunday
+    const emptyCells = Array(startDayOfWeek).fill(null);
+    
+    // Generate actual dates
+    const days: (Date | null)[] = [...emptyCells];
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      days.push(new Date(d));
+    }
+    
+    return days;
+  }, [startDate, endDate]);
+
+  // Group availabilities by date
+  const availabilitiesByDate = useMemo(() => {
+    const grouped: Record<string, AvailabilityWithCapacity[]> = {};
+    availabilities.forEach(avail => {
+      if (!grouped[avail.date]) {
+        grouped[avail.date] = [];
+      }
+      grouped[avail.date].push(avail);
+    });
+    return grouped;
+  }, [availabilities]);
+
+  const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
+      {/* Controls */}
+      <div className="flex flex-wrap items-center gap-4">
         <div className="w-64">
           <Select value={selectedTeacherId} onValueChange={handleTeacherChange}>
             <SelectTrigger>
@@ -89,57 +169,131 @@ export function CalendarView({
             </SelectContent>
           </Select>
         </div>
-        <div className="text-sm text-gray-600">
-          {startDate} ~ {endDate}
+
+        {/* View Mode Toggle */}
+        <div className="flex gap-2">
+          <Button
+            variant={viewMode === '2week' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => changeViewMode('2week')}
+          >
+            兩週
+          </Button>
+          <Button
+            variant={viewMode === 'month' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => changeViewMode('month')}
+          >
+            月份
+          </Button>
+        </div>
+
+        {/* Navigation */}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => navigatePeriod('prev')}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <div className="text-sm font-medium whitespace-nowrap min-w-[180px] text-center">
+            {periodDisplay}
+          </div>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => navigatePeriod('next')}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
-      <div className="grid gap-4">
-        {Object.entries(groupedByDate).map(([date, avails]) => (
-          <Card key={date}>
-            <CardHeader>
-              <CardTitle className="text-lg">{date}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                {avails.map((avail) => {
-                  const myBooking = avail.bookings?.find(
-                    (b) => b.guestName === currentUserId
-                  );
-                  const isFullyBooked = avail.remainingCapacity === 0;
-
-                  return (
-                    <Button
-                      key={avail.id}
-                      variant="outline"
-                      className={`h-auto flex-col items-start p-4 ${
-                        myBooking
-                          ? 'border-blue-500 bg-blue-50'
-                          : isFullyBooked
-                          ? 'border-red-300 bg-red-50'
-                          : 'border-green-300 bg-green-50'
-                      }`}
-                      onClick={() => handleAvailabilityClick(avail)}
-                    >
-                      <div className="font-semibold">
-                        {avail.startTime} - {avail.endTime}
-                      </div>
-                      <div className="text-xs text-gray-600">
-                        剩餘: {avail.remainingCapacity}/{avail.capacity}
-                      </div>
-                      {avail.pendingCount > 0 && (
-                        <div className="text-xs text-yellow-600">
-                          待審核: {avail.pendingCount}
-                        </div>
-                      )}
-                    </Button>
-                  );
-                })}
+      {/* Calendar Grid */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="grid grid-cols-7 gap-2">
+            {/* Week day headers */}
+            {weekDays.map((day) => (
+              <div
+                key={day}
+                className="text-center font-semibold text-sm text-gray-700 py-2"
+              >
+                {day}
               </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+            ))}
+
+            {/* Calendar cells */}
+            {calendarGrid.map((date, index) => {
+              // Empty cell for alignment
+              if (!date) {
+                return (
+                  <div
+                    key={`empty-${index}`}
+                    className="min-h-[120px] border border-gray-100 rounded-lg bg-gray-50"
+                  />
+                );
+              }
+
+              const dateStr = date.toISOString().split('T')[0];
+              const dayAvailabilities = availabilitiesByDate[dateStr] || [];
+              const isToday = dateStr === new Date().toISOString().split('T')[0];
+              const isFirstDayOfMonth = date.getDate() === 1;
+
+              return (
+                <div
+                  key={dateStr}
+                  className={`min-h-[120px] border rounded-lg p-2 ${
+                    isToday ? 'bg-blue-50 border-blue-300' : 'bg-white'
+                  }`}
+                >
+                  <div className={`text-sm font-medium mb-2 ${
+                    isToday ? 'text-blue-600' : 'text-gray-600'
+                  }`}>
+                    {isFirstDayOfMonth && (
+                      <span className="text-xs mr-1">
+                        {date.getMonth() + 1}/
+                      </span>
+                    )}
+                    {date.getDate()}
+                  </div>
+                  <div className="space-y-1">
+                    {dayAvailabilities.map((avail) => {
+                      const myBooking = avail.bookings?.find(
+                        (b) => b.guestName === currentUserId
+                      );
+                      const isFullyBooked = avail.remainingCapacity === 0;
+
+                      return (
+                        <button
+                          key={avail.id}
+                          className={`w-full text-xs p-1.5 rounded text-left transition-colors ${
+                            myBooking
+                              ? 'bg-blue-500 text-white hover:bg-blue-600'
+                              : isFullyBooked
+                              ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                              : 'bg-green-100 text-green-800 hover:bg-green-200'
+                          }`}
+                          onClick={() => !isFullyBooked && handleAvailabilityClick(avail)}
+                          disabled={isFullyBooked && !myBooking}
+                        >
+                          <div className="font-semibold">
+                            {avail.startTime}
+                          </div>
+                          <div className="text-[10px]">
+                            {avail.remainingCapacity}/{avail.capacity}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       {selectedAvailability && (
         <>

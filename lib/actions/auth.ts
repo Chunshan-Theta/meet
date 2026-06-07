@@ -32,5 +32,5 @@ export async function loginUser(credentials: {
 }
 
 export async function logoutUser() {
-  await signOut({ redirectTo: '/' });
+  await signOut({ redirect: true, redirectTo: '/' });
 }

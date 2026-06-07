@@ -11,16 +11,16 @@ export default async function SharedCalendarPage({
   const session = await auth();
   const teachers = await getTeachers();
 
-  // Default to current week
+  // Default to current 2 weeks
   const today = new Date();
-  const startOfWeek = new Date(today);
-  startOfWeek.setDate(today.getDate() - today.getDay());
-  const endOfWeek = new Date(startOfWeek);
-  endOfWeek.setDate(startOfWeek.getDate() + 6);
+  const startOfPeriod = new Date(today);
+  startOfPeriod.setDate(today.getDate() - today.getDay()); // Start from Sunday
+  const endOfPeriod = new Date(startOfPeriod);
+  endOfPeriod.setDate(startOfPeriod.getDate() + 13); // 2 weeks (14 days total)
 
   const startDate =
-    searchParams.startDate || startOfWeek.toISOString().split('T')[0];
-  const endDate = searchParams.endDate || endOfWeek.toISOString().split('T')[0];
+    searchParams.startDate || startOfPeriod.toISOString().split('T')[0];
+  const endDate = searchParams.endDate || endOfPeriod.toISOString().split('T')[0];
   const teacherId = searchParams.teacherId || teachers[0]?.id || '';
 
   const availabilities = teacherId
@@ -30,7 +30,7 @@ export default async function SharedCalendarPage({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">全公開行事曆</h1>
+        <h1 className="text-3xl font-bold text-gray-900">全公開行事曆</h1>
         <p className="text-gray-600">查看教師的開放時段並發起預約</p>
       </div>
 
