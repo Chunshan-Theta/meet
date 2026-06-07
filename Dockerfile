@@ -51,11 +51,11 @@ RUN chmod +x docker-entrypoint.sh
 COPY --from=builder /app/node_modules ./node_modules
 
 # 复制构建输出
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
 
-# 创建数据库目录并设置权限
-RUN mkdir -p /app/prisma && chown -R nextjs:nodejs /app/prisma
+# 设置所有文件的所有权为 nextjs 用户
+RUN chown -R nextjs:nodejs /app
 
 USER nextjs
 

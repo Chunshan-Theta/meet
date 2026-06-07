@@ -1,23 +1,19 @@
 #!/bin/sh
 set -e
 
-echo "🚀 Starting application initialization..."
+echo "🚀 Starting application..."
 
-# 显示环境信息
-echo "📍 Working directory: $(pwd)"
-echo "🗄️  Database URL: ${DATABASE_URL}"
+# 提取数据库文件路径
+DB_PATH=$(echo $DATABASE_URL | sed 's/file://')
+echo "📍 Database path: $DB_PATH"
 
-# 确保 Prisma Client 已生成
-echo "🔧 Generating Prisma Client..."
-npx prisma generate
-
-# 运行数据库迁移
-echo "📦 Running database migrations..."
-if npx prisma migrate deploy; then
-  echo "✅ Migrations completed successfully"
+# 如果数据库文件不存在，运行迁移初始化
+if [ ! -f "$DB_PATH" ]; then
+  echo "📦 Database not found, initializing..."
+  npx prisma migrate deploy
+  echo "✅ Database initialized"
 else
-  echo "⚠️  Migration failed, trying db push..."
-  npx prisma db push --skip-generate
+  echo "✅ Using existing database"
 fi
 
 # 启动应用
