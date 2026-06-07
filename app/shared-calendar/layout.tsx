@@ -2,7 +2,7 @@ import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import { Navbar } from '@/components/navbar';
 
-export default async function DashboardLayout({
+export default async function SharedLayout({
   children,
 }: {
   children: React.ReactNode;

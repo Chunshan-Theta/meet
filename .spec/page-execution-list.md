@@ -1,117 +1,56 @@
-# 頁面執行清單
+# UI 路由與頁面規格書 (Page Routing & Execution Spec - V2)
 
-這份文件只整理頁面層級的實作順序，不新增多餘路由；原則是先補齊既有頁面，再把流程串完整。
+**架構規範**：本專案採用 Next.js 14 App Router。頁面元件 (Page Components) 負責讀取 Server Actions 進行 SSR/RSC 渲染，並將互動委託給 Client Components (表單、Modal、按鈕)。
 
-## 目前頁面地圖
+---
 
-- `/login`：登入入口
-- `/shared-calendar`：共用行事曆與分類篩選入口
-- `/book/[hostId]`：學生預約頁
-- `/dashboard`：登入後導頁
-- `/dashboard/schedule`：開放時段管理
-- `/dashboard/requests`：預約審核
-- `/dashboard/students`：學生統計
-- `/dashboard/feedbacks`：反饋提交與反饋分類
-- `/dashboard/bookings`：學生預約列表與狀態
+## 1. 授權與公開路由 (Auth & Public Routes)
 
-## 目前缺口判定
-### 缺少模組
-- header / footer：目前頁面都還沒有統一的 header 與 footer，後續可以先做簡單版本來協助導覽。
+| 路由路徑 | 頁面職責 | 支援行動 (Actions & Interactions) |
+| :--- | :--- | :--- |
+| `/` | **Landing Page** | 系統介紹。根據登入狀態自動重導向 (已登入 -> `/dashboard`，未登入 -> `/login`)。 |
+| `/login` | **登入頁** | 1. 提交帳密表單 (Client 驗證)。<br>2. 呼叫 `loginUser` 進行驗證並寫入 Session。 |
+| `/register` | **註冊頁** | 1. 提交註冊表單 (切換 TEACHER/STUDENT 角色)。<br>2. 呼叫 `registerUser`。 |
 
-### 已有頁面，但需要補強
+---
 
-- `/shared-calendar`：目前是表格型呈現，尚未完全符合「當週 + 下週網格視圖」的規格。
-- `/book/[hostId]`：已有預約表單，但還需要把時段選擇、空狀態、錯誤提示與提交流程整理得更完整。
-- `/dashboard/schedule`：已有新增/刪除開放時段，但需要更清楚地支援「每週固定 / 單次開放」的切換與驗證。
-- `/dashboard/requests`：已有 Approve / Reject，但仍需要補強空狀態與拒絕理由的操作體驗。
-- `/dashboard/bookings`：已有預約列表與未完成反饋提示，但需要把導向反饋表單的流程再收斂。
-- `/dashboard/feedbacks`：目前同時承載學生端提交與管理端分類統計，功能可用，但頁面責任混在一起，後續要決定是否拆分或強化區塊化呈現。
+## 2. 團隊共用檢視 (Shared Views)
 
-### 尚未需要新增的頁面
+全團隊資訊公開流動的核心樞紐，所有登入使用者皆可存取。
 
-- 目前規格中的主要操作頁都已存在，不先新增其他 route。
-- 優先做的是內容補強與流程串接，而不是擴張頁面數量。
+| 路由路徑 | 頁面職責 | 支援行動 (Actions & Interactions) |
+| :--- | :--- | :--- |
+| `/shared-calendar` | **全公開行事曆** | 1. **URL 同步篩選**：切換日期區間與特定 Teacher。<br>2. **動態渲染**：呼叫 `getAvailabilities`，渲染🟩剩餘名額、🟦本人預約、🟥他人明細。<br>3. **發起預約 (Student)**：點擊時段呼叫 `checkBookingEligibility`，若通過則開啟 `CreateBookingModal`，送出呼叫 `createBooking`。<br>4. **查看明細 (All)**：點擊已預約時段開啟 `BookingDetailModal` 查看他人/自身申請進度。<br>5. 呼叫 `getTeachers` 以渲染篩選下拉選單 |
 
-## 執行順序
-### 0. header / footer 基礎架構
-目標：建立統一的頁面架構，方便後續導覽與功能擴充。
-完成標準：
-- 所有頁面都包含統一的 header 與 footer。
-- header 包含導覽連結與使用者資訊。
-- footer 包含版權資訊與聯絡方式。
+---
 
-### 1. 會員系統
-目標：確保使用者能註冊、登入，並根據角色導向正確頁面。
-完成標準：
-- 註冊頁面允許新使用者創建帳號。
-- 登入頁面允許使用者登入，並根據角色導向 `/dashboard`。
-- 登出功能正常運作，並導回登入頁面。
+## 3. 老師專屬後台 (Teacher Dashboard)
 
-### 2. 共用行事曆先完成
+受 `middleware.ts` 與 Layout 保護，僅限 `Role === 'TEACHER'` 存取。
 
-目標：讓使用者進站就能看懂可預約時段。
+| 路由路徑 | 頁面職責 | 支援行動 (Actions & Interactions) |
+| :--- | :--- | :--- |
+| `/dashboard/schedule` | **開放時間管理** | 1. **檢視**：呼叫 `getHostSchedule` 列表呈現已開放的時段。<br>2. **新增**：開啟表單設定週期/單次時段與名額，呼叫 `createAvailability`。<br>3. **刪除**：點擊刪除，呼叫 `deleteAvailability` (若觸發強防呆則顯示 Error Toast)。 |
+| `/dashboard/requests` | **預約審核中心** | 1. **檢視**：呼叫 `getHostPendingRequests` 呈現待處理清單。<br>2. **審核**：點擊 Approve/Reject，填寫退回理由 (選填)，呼叫 `resolveBooking`。 |
+| `/dashboard/bookings` | **會議紀錄與管理** | 1. **檢視**：呼叫 `getHostBookings` 呈現已核准/已完成清單。<br>2. **狀態推進**：面談結束後點擊「標記完成」，呼叫 `completeBooking`。<br>3. **特例取消**：臨時無法出席，呼叫 `resolveBooking(status: CANCELLED)`。<br>4. **查看反饋**：呼叫 `getFeedbackByBookingId` 檢視學生檢討。 |
 
-完成標準：
+---
 
-- 顯示當週與下週的網格視圖。
-- 顯示開放狀態、容量、已預約學生、分類標籤。
-- 可用分類 Filter 篩選共學時段。
+## 4. 學生專屬後台 (Student Dashboard)
 
-### 3. 預約頁補齊閉環
+受 `middleware.ts` 與 Layout 保護，僅限 `Role === 'STUDENT'` 存取。
 
-目標：學生可以完成一次完整預約。
+| 路由路徑 | 頁面職責 | 支援行動 (Actions & Interactions) |
+| :--- | :--- | :--- |
+| `/dashboard/bookings` | **個人申請進度追蹤** | 1. **檢視**：呼叫 `getStudentBookings` 列表呈現個人歷史與未來預約。<br>2. **主動取消**：針對 PENDING/APPROVED 狀態，呼叫 `cancelBooking` 撤回。<br>3. **查看反饋**：呼叫 `getFeedbackByBookingId` 檢視歷史紀錄。 |
+| `/dashboard/feedbacks` | **反饋待辦事項** | 1. **檢視待辦**：呼叫 `getPendingFeedbacks` 渲染已被老師標記 COMPLETED 但尚未填寫反饋的會議。<br>2. **提交反饋**：開啟表單填寫 Summary/Action Items/Goals，呼叫 `submitFeedback` 解除預約封鎖限制。 |
 
-完成標準：
+---
 
-- 時段選擇清楚可用。
-- 必填 category、currentProgress、expectedOutcome。
-- 若對應時段已滿或缺少資格，能正確阻擋並顯示原因。
+## 5. 核心共用元件 (Shared UI Components)
 
-### 4. 學生端預約列表與反饋入口
+這些元件跨頁面使用，需獨立於 `components/modals/` 封裝：
 
-目標：學生能看懂自己的狀態，並被正確導向反饋。
-
-完成標準：
-
-- 列表顯示狀態與退回理由。
-- 若有未填反饋的 COMPLETED 會議，畫面需明確導向反饋表單。
-- 已完成反饋的紀錄能正常查閱。
-
-### 5. 管理端審核與排程
-
-目標：老師 / 助教能管理開放時段與審核請求。
-
-完成標準：
-
-- 可新增 / 刪除開放時段。
-- 可一鍵 Approve / Reject。
-- Reject 時必填 rejectionReason。
-- 排程表單能正確表達 recurring 與 specificDate。
-
-### 6. 統計與反饋分類整理
-
-目標：管理端能看懂學生與反饋概況。
-
-完成標準：
-
-- 學生統計可反映總預約、完成數、反饋數。
-- 反饋分類列表可用於快速檢視類別分布。
-- 若後續要拆頁，需先維持既有資料來源一致。
-
-## 頁面級 DoD
-
-- `login`：能登入並依角色導向正確入口。
-- `shared-calendar`：網格清楚、可篩選、資訊完整。
-- `book/[hostId]`：能成功送出預約，且限制條件生效。
-- `dashboard/bookings`：學生能看到狀態與反饋提示。
-- `dashboard/requests`：管理者能完成審核決策。
-- `dashboard/schedule`：管理者能維護時段。
-- `dashboard/students`：可查看學生統計。
-- `dashboard/feedbacks`：學生可提交反饋，管理端可看分類。
-
-## 實作原則
-
-- 先補現有頁面，不先加新 route。
-- 先做資料流完整，再做視覺優化。
-- 所有頁面都要對齊 Prisma 與 Server Actions 的實際資料結構。
-- 任何表單若會影響 booking / feedback / availability，都要保留明確錯誤狀態。
+* **`CreateBookingModal`**：學生發起預約的表單，包含 Category 下拉選單與 DoD 必填欄位。
+* **`BookingDetailModal`**：唯讀視窗，展示預約細節 (Topic, Progress, DoD)、目前狀態，以及 (若已完成) 顯示 Feedback 內容。
+* **`FeedbackFormModal`**：學生填寫反饋的專用表單。

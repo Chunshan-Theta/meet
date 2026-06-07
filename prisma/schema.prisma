@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
+  url      = "file:./dev.db"
 }
 
 model User {
@@ -12,59 +12,51 @@ model User {
   email          String         @unique
   password       String
   name           String
-  role           String         @default("STUDENT")
-  teacherTAs     TeacherTA[]    @relation("Teacher")
-  taTeachers     TeacherTA[]    @relation("TA")
+  role           String         @default("STUDENT") 
   availabilities Availability[]
-  bookingsHost   Booking[]      @relation("Host")
-  bookingsGuest  Booking[]      @relation("Guest")
-}
-
-model TeacherTA {
-  teacherId String
-  taId      String
-  teacher   User   @relation("Teacher", fields: [teacherId], references: [id])
-  ta        User   @relation("TA", fields: [taId], references: [id])
-
-  @@id([teacherId, taId])
+  bookingsHost   Booking[]      @relation("HostBookings")
+  bookingsGuest  Booking[]      @relation("GuestBookings")
 }
 
 model Availability {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   userId       String
-  user         User     @relation(fields: [userId], references: [id])
-  isRecurring  Boolean  @default(true)
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isRecurring  Boolean   @default(true)
   dayOfWeek    Int?
   specificDate String?
   startTime    String
   endTime      String
-  capacity     Int      @default(1)
+  capacity     Int       @default(1)
+  bookings     Booking[]
 }
 
 model Booking {
-  id              String   @id @default(cuid())
+  id              String       @id @default(cuid())
   hostId          String
   guestId         String
-  host            User     @relation("Host", fields: [hostId], references: [id])
-  guest           User     @relation("Guest", fields: [guestId], references: [id])
+  availabilityId  String
+  host            User         @relation("HostBookings", fields: [hostId], references: [id], onDelete: Cascade)
+  guest           User         @relation("GuestBookings", fields: [guestId], references: [id], onDelete: Cascade)
+  availability    Availability @relation(fields: [availabilityId], references: [id], onDelete: Cascade)
   date            String
   startTime       String
   endTime         String
-  status          String   @default("PENDING")
+  status          String       @default("PENDING") 
   category        String
   topic           String
   currentProgress String
   expectedOutcome String
   attachmentUrl   String?
   rejectionReason String?
-  createdAt       DateTime @default(now())
+  createdAt       DateTime     @default(now())
   feedback        Feedback?
 }
 
 model Feedback {
   id          String   @id @default(cuid())
   bookingId   String   @unique
-  booking     Booking  @relation(fields: [bookingId], references: [id])
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   summary     String
   actionItems String
   goals       String
