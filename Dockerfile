@@ -16,7 +16,11 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# 生成 Prisma Client
+# 确保 public 目录存在（即使为空）
+RUN mkdir -p public
+
+# 生成 Prisma Client（设置环境变量以避免下载失败）
+ENV PRISMA_ENGINES_MIRROR=https://registry.npmmirror.com/-/binary/prisma
 RUN npx prisma generate
 
 # 构建 Next.js 应用
