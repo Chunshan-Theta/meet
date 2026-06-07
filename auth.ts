@@ -1,70 +1,47 @@
-import NextAuth from "next-auth";
-import Credentials from "next-auth/providers/credentials";
-import bcrypt from "bcryptjs";
-import { z } from "zod";
-import { prisma } from "@/lib/prisma";
-import { ROLE, type Role } from "@/lib/constants";
+import NextAuth from 'next-auth';
+import Credentials from 'next-auth/providers/credentials';
+import { authConfig } from './auth.config';
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
+import { Role } from './lib/constants';
+
+const prisma = new PrismaClient();
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  trustHost: true,
-  session: { strategy: "jwt" },
-  pages: { signIn: "/login" },
+  ...authConfig,
   providers: [
     Credentials({
-      credentials: {
-        email: {},
-        password: {},
-      },
-      authorize: async (credentials) => {
-        const parsed = z
-          .object({
-            email: z.string().email(),
-            password: z.string().min(6),
-          })
-          .safeParse(credentials);
+      async authorize(credentials) {
+        const { email, password } = credentials as {
+          email: string;
+          password: string;
+        };
 
-        if (!parsed.success) {
+        if (!email || !password) {
           return null;
         }
 
-        const user = await prisma.user.findUnique({ where: { email: parsed.data.email } });
+        const user = await prisma.user.findUnique({
+          where: { email },
+        });
+
         if (!user) {
           return null;
         }
 
-        const valid = await bcrypt.compare(parsed.data.password, user.password);
-        if (!valid) {
+        const passwordsMatch = await bcrypt.compare(password, user.password);
+
+        if (!passwordsMatch) {
           return null;
         }
-
-
-        const role = ([ROLE.TEACHER, ROLE.TA, ROLE.STUDENT] as const).includes(user.role as Role)
-          ? (user.role as Role)
-          : ROLE.STUDENT;
 
         return {
           id: user.id,
           email: user.email,
           name: user.name,
-          role,
+          role: user.role,
         };
       },
     }),
   ],
-  callbacks: {
-    jwt: async ({ token, user }) => {
-      if (user) {
-        token.role = user.role;
-        token.id = user.id;
-      }
-      return token;
-    },
-    session: async ({ session, token }) => {
-      if (session.user) {
-        session.user.id = token.id as string;
-        session.user.role = token.role as "TEACHER" | "TA" | "STUDENT";
-      }
-      return session;
-    },
-  },
 });

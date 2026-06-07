@@ -1,48 +1,24 @@
-import Link from "next/link";
-import { redirect } from "next/navigation";
-import { auth, signOut } from "@/auth";
-import { Button } from "@/components/ui/button";
+import { auth } from '@/auth';
+import { redirect } from 'next/navigation';
+import { Navbar } from '@/components/navbar';
 
-const links = [
-  { href: "/dashboard/schedule", label: "Schedule" },
-  { href: "/dashboard/requests", label: "Requests" },
-  { href: "/dashboard/students", label: "Students" },
-  { href: "/dashboard/feedbacks", label: "Feedbacks" },
-  { href: "/dashboard/bookings", label: "Bookings" },
-];
-
-export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default async function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const session = await auth();
+
   if (!session?.user) {
-    redirect("/login");
+    redirect('/login');
   }
 
   return (
-    <main className="mx-auto max-w-6xl space-y-4 p-4">
-      <header className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-white p-4">
-        <div>
-          <p className="text-sm text-slate-500">{session.user.role}</p>
-          <h1 className="text-lg font-semibold">{session.user.name}</h1>
-        </div>
-        <nav className="flex flex-wrap items-center gap-3">
-          {links.map((link) => (
-            <Link key={link.href} href={link.href} className="text-sm text-blue-600 underline">
-              {link.label}
-            </Link>
-          ))}
-        </nav>
-        <form
-          action={async () => {
-            "use server";
-            await signOut({ redirectTo: "/login" });
-          }}
-        >
-          <Button type="submit" variant="outline">
-            Logout
-          </Button>
-        </form>
-      </header>
-      {children}
-    </main>
+    <div className="min-h-screen bg-gray-50">
+      <Navbar user={session.user} />
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {children}
+      </main>
+    </div>
   );
 }

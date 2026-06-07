@@ -1,100 +1,86 @@
-import bcrypt from "bcryptjs";
-import { BOOKING_STATUS, ROLE } from "@/lib/constants";
-import { prisma } from "@/lib/prisma";
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
+import { Role } from '../lib/constants';
+
+const prisma = new PrismaClient();
 
 async function main() {
-  await prisma.feedback.deleteMany();
-  await prisma.booking.deleteMany();
-  await prisma.availability.deleteMany();
-  await prisma.teacherTA.deleteMany();
-  await prisma.user.deleteMany();
+  console.log('開始建立種子數據...');
 
-  const [teacherPassword, taPassword, studentPassword] = await Promise.all([
-    bcrypt.hash("teacher123", 10),
-    bcrypt.hash("ta123", 10),
-    bcrypt.hash("student123", 10),
-  ]);
+    //   // Create a teacher
+    //   const hashedPassword = await bcrypt.hash('password123', 10);
 
-  const teacher = await prisma.user.create({
-    data: {
-      email: "teacher@example.com",
-      password: teacherPassword,
-      name: "Teacher One",
-      role: ROLE.TEACHER,
-      availabilities: {
-        create: [
-          { isRecurring: true, dayOfWeek: 1, startTime: "09:00", endTime: "12:00", capacity: 2 },
-          { isRecurring: false, specificDate: "2026-06-12", startTime: "14:00", endTime: "16:00", capacity: 1 },
-        ],
-      },
-    },
-  });
+    //   const teacher = await prisma.user.upsert({
+    //     where: { email: 'teacher.wu@mail.com' },
+    //     update: {},
+    //     create: {
+    //       email: 'teacher@example.com',
+    //       password: hashedPassword,
+    //       name: '吳教授',
+    //       role: Role.TEACHER,
+    //     },
+    //   });
 
-  const ta = await prisma.user.create({
-    data: {
-      email: "ta@example.com",
-      password: taPassword,
-      name: "TA One",
-      role: ROLE.TA,
-    },
-  });
+    //   console.log('✓ 教師帳號已建立:', teacher.email);
 
-  const student = await prisma.user.create({
-    data: {
-      email: "student@example.com",
-      password: studentPassword,
-      name: "Student One",
-      role: ROLE.STUDENT,
-    },
-  });
+    //   // Create a student
+    //   const student = await prisma.user.upsert({
+    //     where: { email: 'student@example.com' },
+    //     update: {},
+    //     create: {
+    //       email: 'student@example.com',
+    //       password: hashedPassword,
+    //       name: '李同學',
+    //       role: Role.STUDENT,
+    //     },
+    //   });
 
-  await prisma.teacherTA.create({ data: { teacherId: teacher.id, taId: ta.id } });
+    //   console.log('✓ 學生帳號已建立:', student.email);
 
-  await prisma.booking.createMany({
-    data: [
-      {
-        hostId: teacher.id,
-        guestId: student.id,
-        date: "2026-06-09",
-        startTime: "09:00",
-        endTime: "09:30",
-        status: BOOKING_STATUS.APPROVED,
-        category: "Code Review",
-        topic: "Refactor auth flow",
-        currentProgress: "Done with initial prototype",
-        expectedOutcome: "Receive review comments",
-      },
-      {
-        hostId: teacher.id,
-        guestId: student.id,
-        date: "2026-06-10",
-        startTime: "10:00",
-        endTime: "10:30",
-        status: BOOKING_STATUS.PENDING,
-        category: "論文進度",
-        topic: "Chapter 2 updates",
-        currentProgress: "Drafted 70%",
-        expectedOutcome: "Confirm next milestones",
-      },
-      {
-        hostId: ta.id,
-        guestId: student.id,
-        date: "2026-06-11",
-        startTime: "15:00",
-        endTime: "15:30",
-        status: BOOKING_STATUS.PENDING,
-        category: "職涯請益",
-        topic: "Internship prep",
-        currentProgress: "Resume drafted",
-        expectedOutcome: "Actionable interview plan",
-      },
-    ],
-  });
+    //   // Create some availabilities for the teacher
+    //   const availabilities = [
+    //     {
+    //       userId: teacher.id,
+    //       isRecurring: true,
+    //       dayOfWeek: 1, // Monday
+    //       startTime: '10:00',
+    //       endTime: '12:00',
+    //       capacity: 3,
+    //     },
+    //     {
+    //       userId: teacher.id,
+    //       isRecurring: true,
+    //       dayOfWeek: 3, // Wednesday
+    //       startTime: '14:00',
+    //       endTime: '16:00',
+    //       capacity: 2,
+    //     },
+    //     {
+    //       userId: teacher.id,
+    //       isRecurring: true,
+    //       dayOfWeek: 5, // Friday
+    //       startTime: '09:00',
+    //       endTime: '11:00',
+    //       capacity: 2,
+    //     },
+    //   ];
+
+    //   for (const avail of availabilities) {
+    //     await prisma.availability.create({
+    //       data: avail,
+    //     });
+    //   }
+
+    //   console.log('✓ 開放時段已建立');
+    //   console.log('\n種子數據建立完成！');
+    //   console.log('\n測試帳號:');
+    //   console.log('教師帳號: teacher@example.com / password123');
+    //   console.log('學生帳號: student@example.com / password123');
 }
 
 main()
-  .catch((error) => {
-    console.error(error);
+  .catch((e) => {
+    console.error('Error:', e);
     process.exit(1);
   })
   .finally(async () => {

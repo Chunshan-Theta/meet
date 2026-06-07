@@ -1,218 +1,245 @@
-"use server";
+'use server';
 
-import { Prisma } from "@prisma/client";
-import { BOOKING_STATUS, type BookingStatus } from "@/lib/constants";
-import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
-import { buildSlots, hasRequiredBookingFields } from "@/lib/scheduling-utils";
+import { PrismaClient, Availability } from '@prisma/client';
+import { auth } from '@/auth';
+import { Role, BookingStatus } from '@/lib/constants';
 
-export type CreateBookingInput = {
-  hostId: string;
-  guestId: string;
+const prisma = new PrismaClient();
+
+type Result<T> = T & { error?: string };
+
+export type AvailabilityWithCapacity = {
+  id: string;
   date: string;
   startTime: string;
   endTime: string;
-  category: string;
-  topic: string;
-  currentProgress: string;
-  expectedOutcome: string;
-  attachmentUrl?: string;
+  capacity: number;
+  remainingCapacity: number;
+  pendingCount: number;
+  bookings?: Array<{
+    id: string;
+    guestName: string;
+    status: string;
+    category: string;
+    topic: string;
+    currentProgress: string;
+    expectedOutcome: string;
+  }>;
 };
 
-function getDateDayOfWeek(dateString: string) {
-  return new Date(`${dateString}T00:00:00`).getDay();
+// Helper function to expand recurring availabilities into specific dates
+function expandAvailabilities(
+  availabilities: Availability[],
+  startDate: string,
+  endDate: string
+): Array<Availability & { date: string }> {
+  const expanded: Array<Availability & { date: string }> = [];
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  for (const avail of availabilities) {
+    if (avail.isRecurring && avail.dayOfWeek !== null) {
+      // Expand recurring availability
+      const current = new Date(start);
+      while (current <= end) {
+        if (current.getDay() === avail.dayOfWeek) {
+          expanded.push({
+            ...avail,
+            date: current.toISOString().split('T')[0],
+          });
+        }
+        current.setDate(current.getDate() + 1);
+      }
+    } else if (!avail.isRecurring && avail.specificDate) {
+      // Add specific date availability if within range
+      const specificDate = new Date(avail.specificDate);
+      if (specificDate >= start && specificDate <= end) {
+        expanded.push({
+          ...avail,
+          date: avail.specificDate,
+        });
+      }
+    }
+  }
+
+  return expanded;
 }
 
-export async function checkBookingEligibility(guestId: string) {
-  const missingFeedback = await prisma.booking.findFirst({
-    where: {
-      guestId,
-      status: BOOKING_STATUS.COMPLETED,
-      feedback: null,
-    },
-  });
+export async function getAvailabilities(
+  hostId: string,
+  startDate: string,
+  endDate: string
+): Promise<AvailabilityWithCapacity[]> {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return [];
+    }
 
-  return { eligible: !missingFeedback, blockingBookingId: missingFeedback?.id };
+    // Fetch all availabilities for the host
+    const availabilities = await prisma.availability.findMany({
+      where: { userId: hostId },
+      include: {
+        bookings: {
+          where: {
+            date: {
+              gte: startDate,
+              lte: endDate,
+            },
+            status: {
+              in: [BookingStatus.PENDING, BookingStatus.APPROVED],
+            },
+          },
+          include: {
+            guest: {
+              select: { name: true },
+            },
+          },
+        },
+      },
+    });
+
+    // Expand recurring availabilities
+    const expandedAvailabilities = expandAvailabilities(
+      availabilities,
+      startDate,
+      endDate
+    );
+
+    // Calculate capacity for each expanded availability
+    const result: AvailabilityWithCapacity[] = expandedAvailabilities.map((avail) => {
+      // Find the original availability with bookings
+      const originalAvail = availabilities.find(a => a.id === avail.id);
+      const allBookings = originalAvail?.bookings || [];
+      
+      const bookingsForDate = allBookings.filter((b: any) => b.date === avail.date);
+      const approvedCount = bookingsForDate.filter(
+        (b: any) => b.status === BookingStatus.APPROVED
+      ).length;
+      const pendingCount = bookingsForDate.filter(
+        (b: any) => b.status === BookingStatus.PENDING
+      ).length;
+
+      return {
+        id: avail.id,
+        date: avail.date,
+        startTime: avail.startTime,
+        endTime: avail.endTime,
+        capacity: avail.capacity,
+        remainingCapacity: avail.capacity - approvedCount,
+        pendingCount,
+        bookings: bookingsForDate.map((b: any) => ({
+          id: b.id,
+          guestName: b.guest.name,
+          status: b.status,
+          category: b.category,
+          topic: b.topic,
+          currentProgress: b.currentProgress,
+          expectedOutcome: b.expectedOutcome,
+        })),
+      };
+    });
+
+    return result;
+  } catch (error) {
+    console.error('Get availabilities error:', error);
+    return [];
+  }
 }
 
-export async function getAvailableSlots(hostId: string, dateString: string) {
-  const dayOfWeek = getDateDayOfWeek(dateString);
+export async function createAvailability(data: {
+  isRecurring: boolean;
+  dayOfWeek?: number;
+  specificDate?: string;
+  startTime: string;
+  endTime: string;
+  capacity: number;
+}): Promise<Result<{ success: boolean }>> {
+  try {
+    const session = await auth();
+    if (!session?.user || session.user.role !== Role.TEACHER) {
+      return { success: false, error: '權限不足' };
+    }
 
-  const availabilities = await prisma.availability.findMany({
-    where: {
-      userId: hostId,
-      OR: [
-        {
-          isRecurring: true,
-          dayOfWeek,
-        },
-        {
-          isRecurring: false,
-          specificDate: dateString,
-        },
+    await prisma.availability.create({
+      data: {
+        userId: session.user.id,
+        isRecurring: data.isRecurring,
+        dayOfWeek: data.dayOfWeek,
+        specificDate: data.specificDate,
+        startTime: data.startTime,
+        endTime: data.endTime,
+        capacity: data.capacity,
+      },
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Create availability error:', error);
+    return { success: false, error: '建立時段失敗' };
+  }
+}
+
+export async function deleteAvailability(
+  availabilityId: string
+): Promise<Result<{ success: boolean }>> {
+  try {
+    const session = await auth();
+    if (!session?.user || session.user.role !== Role.TEACHER) {
+      return { success: false, error: '權限不足' };
+    }
+
+    // Check if there are any approved bookings
+    const approvedBookings = await prisma.booking.findFirst({
+      where: {
+        availabilityId,
+        status: BookingStatus.APPROVED,
+      },
+    });
+
+    if (approvedBookings) {
+      return {
+        success: false,
+        error: '此時段有已核准的預約，無法刪除',
+      };
+    }
+
+    // Delete the availability (cascade will handle pending bookings)
+    await prisma.availability.delete({
+      where: { id: availabilityId },
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Delete availability error:', error);
+    return { success: false, error: '刪除時段失敗' };
+  }
+}
+
+export async function getHostSchedule(hostId: string): Promise<Availability[]> {
+  try {
+    const session = await auth();
+    if (!session?.user || session.user.role !== Role.TEACHER) {
+      return [];
+    }
+
+    // Ensure the user can only access their own schedule
+    if (session.user.id !== hostId) {
+      return [];
+    }
+
+    const availabilities = await prisma.availability.findMany({
+      where: { userId: hostId },
+      orderBy: [
+        { isRecurring: 'desc' },
+        { dayOfWeek: 'asc' },
+        { specificDate: 'asc' },
       ],
-    },
-    orderBy: [{ startTime: "asc" }],
-  });
+    });
 
-  const bookings = await prisma.booking.findMany({
-    where: {
-      hostId,
-      date: dateString,
-      status: { not: BOOKING_STATUS.REJECTED },
-    },
-    select: {
-      startTime: true,
-      endTime: true,
-    },
-  });
-
-  return buildSlots(availabilities, bookings);
-}
-
-export async function getAvailabilitySummary(hostId: string, startDate: string, endDate: string) {
-  const start = new Date(`${startDate}T00:00:00`);
-  const end = new Date(`${endDate}T00:00:00`);
-  const summary: Record<string, { availableSlots: number; totalSlots: number }> = {};
-
-  for (const date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
-    const dateKey = date.toISOString().slice(0, 10);
-    const slots = await getAvailableSlots(hostId, dateKey);
-    summary[dateKey] = {
-      availableSlots: slots.filter((slot) => slot.available).length,
-      totalSlots: slots.length,
-    };
+    return availabilities;
+  } catch (error) {
+    console.error('Get host schedule error:', error);
+    return [];
   }
-
-  return summary;
-}
-
-export async function createBooking(data: CreateBookingInput) {
-  if (!hasRequiredBookingFields(data)) {
-    throw new Error("category, currentProgress, expectedOutcome are required");
-  }
-
-  const eligibility = await checkBookingEligibility(data.guestId);
-  if (!eligibility.eligible) {
-    throw new Error("請先完成上一筆已完成會議的反饋");
-  }
-
-  const slots = await getAvailableSlots(data.hostId, data.date);
-  const requestedSlot = slots.find((slot) => slot.startTime === data.startTime && slot.endTime === data.endTime);
-
-  if (!requestedSlot || !requestedSlot.available) {
-    throw new Error("此時段容量已滿或不存在");
-  }
-
-  await prisma.booking.create({
-    data: {
-      ...data,
-      status: BOOKING_STATUS.PENDING,
-      attachmentUrl: data.attachmentUrl || null,
-    },
-  });
-
-  revalidatePath("/shared-calendar");
-  revalidatePath("/dashboard/bookings");
-}
-
-export async function resolveBooking(
-  bookingId: string,
-  status: BookingStatus,
-  reviewerId: string,
-  rejectionReason?: string,
-) {
-  const booking = await prisma.booking.findUnique({ where: { id: bookingId }, include: { host: true } });
-  if (!booking) {
-    throw new Error("Booking not found");
-  }
-
-  if (booking.hostId !== reviewerId) {
-    throw new Error("Not authorized to resolve booking");
-  }
-
-  if (status === BOOKING_STATUS.REJECTED && !rejectionReason) {
-    throw new Error("拒絕時必須填寫 rejectionReason");
-  }
-
-  await prisma.booking.update({
-    where: { id: bookingId },
-    data: {
-      status,
-      rejectionReason: status === BOOKING_STATUS.REJECTED ? rejectionReason ?? null : null,
-    },
-  });
-
-  revalidatePath("/dashboard/requests");
-  revalidatePath("/dashboard/bookings");
-}
-
-export async function submitFeedback(
-  bookingId: string,
-  guestId: string,
-  feedbackData: { summary: string; actionItems: string; goals: string },
-) {
-  const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
-  if (!booking) {
-    throw new Error("Booking not found");
-  }
-
-  if (booking.guestId !== guestId) {
-    throw new Error("Not authorized to submit feedback");
-  }
-
-  await prisma.feedback.upsert({
-    where: { bookingId },
-    update: feedbackData,
-    create: {
-      bookingId,
-      ...feedbackData,
-    },
-  });
-
-  revalidatePath("/dashboard/feedbacks");
-}
-
-export async function getSharedCalendarData(category?: string) {
-  const now = new Date();
-  const start = new Date(now);
-  const weekday = start.getDay();
-  start.setDate(start.getDate() - weekday);
-
-  const dates: string[] = [];
-  for (let i = 0; i < 14; i += 1) {
-    const date = new Date(start);
-    date.setDate(start.getDate() + i);
-    dates.push(date.toISOString().slice(0, 10));
-  }
-
-  const bookings = await prisma.booking.findMany({
-    where: {
-      date: { in: dates },
-      ...(category ? { category } : {}),
-    },
-    include: { host: true, guest: true },
-    orderBy: [{ date: "asc" }, { startTime: "asc" }],
-  });
-
-  return { dates, bookings };
-}
-
-export async function addAvailability(data: Prisma.AvailabilityCreateInput) {
-  if (data.isRecurring && data.dayOfWeek == null) {
-    throw new Error("Recurring availability must provide dayOfWeek");
-  }
-
-  if (!data.isRecurring && !data.specificDate) {
-    throw new Error("One-time availability must provide specificDate");
-  }
-
-  await prisma.availability.create({ data });
-  revalidatePath("/dashboard/schedule");
-  revalidatePath("/shared-calendar");
-}
-
-export async function deleteAvailability(id: string, userId: string) {
-  await prisma.availability.deleteMany({ where: { id, userId } });
-  revalidatePath("/dashboard/schedule");
 }

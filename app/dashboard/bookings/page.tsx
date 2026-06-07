@@ -1,57 +1,39 @@
-import Link from "next/link";
-import { auth } from "@/auth";
-import { checkBookingEligibility } from "@/lib/actions/scheduling";
-import { prisma } from "@/lib/prisma";
-import { Card } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableRow } from "@/components/ui/table";
+import { auth } from '@/auth';
+import { redirect } from 'next/navigation';
+import { Role } from '@/lib/constants';
+import { getHostBookings } from '@/lib/actions/booking';
+import { getStudentBookings } from '@/lib/actions/booking';
+import { TeacherBookingsView } from '@/components/teacher-bookings-view';
+import { StudentBookingsView } from '@/components/student-bookings-view';
 
 export default async function BookingsPage() {
   const session = await auth();
-  if (!session?.user) return null;
 
-  const bookings = await prisma.booking.findMany({
-    where: { guestId: session.user.id },
-    include: { host: true, feedback: true },
-    orderBy: { createdAt: "desc" },
-  });
+  if (!session?.user) {
+    redirect('/login');
+  }
 
-  const eligibility = await checkBookingEligibility(session.user.id);
-
-  return (
-    <div className="space-y-4">
-      {!eligibility.eligible && eligibility.blockingBookingId ? (
-        <Card className="border-red-200 bg-red-50 text-red-700">
-          你有尚未填寫 Feedback 的 COMPLETED 會議。
-          <Link className="ml-2 underline" href={`/dashboard/feedbacks?bookingId=${eligibility.blockingBookingId}`}>
-            立即填寫
-          </Link>
-        </Card>
-      ) : null}
-      <Card>
-        <h2 className="mb-3 text-lg font-semibold">我的預約</h2>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Host</TableCell>
-              <TableCell>日期</TableCell>
-              <TableCell>分類</TableCell>
-              <TableCell>狀態</TableCell>
-              <TableCell>退回理由</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {bookings.map((booking) => (
-              <TableRow key={booking.id}>
-                <TableCell>{booking.host.name}</TableCell>
-                <TableCell>{booking.date}</TableCell>
-                <TableCell>{booking.category}</TableCell>
-                <TableCell>{booking.status}</TableCell>
-                <TableCell>{booking.rejectionReason || "-"}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Card>
-    </div>
-  );
+  if (session.user.role === Role.TEACHER) {
+    const bookings = await getHostBookings(session.user.id);
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold">會議紀錄</h1>
+          <p className="text-gray-600">管理已確認的預約和完成狀態</p>
+        </div>
+        <TeacherBookingsView bookings={bookings} />
+      </div>
+    );
+  } else {
+    const bookings = await getStudentBookings(session.user.id);
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold">我的預約</h1>
+          <p className="text-gray-600">查看您的預約記錄和狀態</p>
+        </div>
+        <StudentBookingsView bookings={bookings} />
+      </div>
+    );
+  }
 }
