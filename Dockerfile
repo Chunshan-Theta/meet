@@ -43,6 +43,10 @@ COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/next.config.mjs ./next.config.mjs
 
+# 复制启动脚本
+COPY docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
+
 # 复制完整的 node_modules（Prisma 需要所有依赖）
 COPY --from=builder /app/node_modules ./node_modules
 
@@ -61,5 +65,5 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 ENV AUTH_TRUST_HOST=true
 
-# 启动脚本（运行迁移后启动服务器）
-CMD ["sh", "-c", "npx prisma migrate deploy && node server.js"]
+# 使用启动脚本
+CMD ["./docker-entrypoint.sh"]

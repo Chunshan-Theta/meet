@@ -4,15 +4,31 @@
 
 ### 1. 准备数据库
 
-由于本项目使用 SQLite，建议在 Zeabur 上改用 PostgreSQL 或 MySQL。
+**重要：** 本项目默认使用 SQLite，但在 Zeabur 生产环境建议使用 PostgreSQL。
 
-在 Zeabur 上创建数据库服务后，更新 `prisma/schema.prisma`：
+#### 选项 A：继续使用 SQLite（简单但不推荐生产环境）
+
+环境变量设置：
+```env
+DATABASE_URL=file:./dev.db
+```
+
+#### 选项 B：使用 PostgreSQL（推荐）
+
+1. 在 Zeabur 控制台创建 PostgreSQL 服务
+2. 修改 `prisma/schema.prisma`：
 
 ```prisma
 datasource db {
-  provider = "postgresql"  // 或 "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+```
+
+3. 重新生成 Prisma Client 和迁移：
+```bash
+npx prisma generate
+npx prisma migrate dev --name init_postgres
 ```
 
 ### 2. 设置环境变量
@@ -20,9 +36,15 @@ datasource db {
 在 Zeabur 项目设置中添加以下环境变量：
 
 ```env
+# 数据库连接（根据你的选择）
 DATABASE_URL=postgresql://user:password@host:port/database
-AUTH_SECRET=your-secret-key-here
-NEXTAUTH_URL=https://your-domain.zeabur.app
+# 或
+DATABASE_URL=file:./dev.db
+
+# Auth.js 配置
+AUTH_SECRET=<使用下面命令生成>
+NEXTAUTH_URL=https://meetus.zeabur.app
+AUTH_TRUST_HOST=true
 ```
 
 生成 AUTH_SECRET：
@@ -37,15 +59,13 @@ openssl rand -base64 32
 3. Zeabur 会自动检测 Dockerfile 并构建
 4. 等待部署完成
 
-### 4. 初始化数据库
+**注意：** Dockerfile 中已配置在启动时自动运行 `prisma migrate deploy`
 
-部署完成后，运行种子数据（如需要）：
+### 4. 验证部署
 
-```bash
-# 在 Zeabur 控制台执行
-npx prisma migrate deploy
-npm run seed
-```
+1. 访问 `https://your-domain.zeabur.app`
+2. 尝试注册新用户
+3. 检查 Zeabur 日志确认没有错误
 
 ## 本地测试 Docker
 
@@ -69,3 +89,41 @@ docker run -p 3000:3000 \
 - 确保所有环境变量都已正确设置
 - Prisma 迁移会在容器启动时自动运行
 - 如果需要持久化数据，使用 Zeabur 的数据库服务
+
+## 故障排除
+
+### 错误：`UntrustedHost: Host must be trusted`
+
+**解决方案：**
+- 确保设置了 `AUTH_TRUST_HOST=true` 环境变量
+- 确保 `NEXTAUTH_URL` 与你的域名匹配
+
+### 错误：`The table main.User does not exist`
+
+**原因：** 数据库迁移未运行
+
+**解决方案：**
+1. 检查 Zeabur 日志，确认迁移是否成功运行
+2. 如果使用 PostgreSQL，确保已重新生成迁移文件
+3. 手动在 Zeabur 控制台运行：
+   ```bash
+   npx prisma migrate deploy
+   ```
+
+### 错误：`Cannot find module 'effect'` 或其他模块错误
+
+**解决方案：**
+1. 确保 Dockerfile 正确复制了 `node_modules`
+2. 重新构建镜像：
+   ```bash
+   docker build -t meet --no-cache .
+   ```
+3. 在 Zeabur 上触发重新部署
+
+### 数据库连接问题
+
+**检查清单：**
+- [ ] `DATABASE_URL` 格式正确
+- [ ] 数据库服务正在运行
+- [ ] 网络连接正常
+- [ ] 使用 PostgreSQL 时，确保已更新 schema.prisma
