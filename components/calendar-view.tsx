@@ -56,10 +56,10 @@ export function CalendarView({
   const handleAvailabilityClick = (availability: AvailabilityWithCapacity) => {
     setSelectedAvailability(availability);
 
-    // Check if user has bookings in this slot
-    const hasBookings = availability.bookings && availability.bookings.length > 0;
+    // Check if current user has a booking in this slot
+    const hasMyBooking = availability.bookings?.some((b) => b.guestName === currentUserId);
 
-    if (hasBookings || currentUserRole === Role.TEACHER) {
+    if (hasMyBooking || currentUserRole === Role.TEACHER) {
       // Show details
       setShowDetailModal(true);
     } else if (currentUserRole === Role.STUDENT && availability.remainingCapacity > 0) {
