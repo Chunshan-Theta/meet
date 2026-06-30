@@ -15,7 +15,7 @@ interface BookingDetailModalProps {
   onOpenChange: (open: boolean) => void;
   availability: AvailabilityWithCapacity;
   currentUserId?: string;
-  previewBookingId?: string;
+  previewBookingId?: string | null;
 }
 
 export function BookingDetailModal({
@@ -25,13 +25,11 @@ export function BookingDetailModal({
   currentUserId,
   previewBookingId,
 }: BookingDetailModalProps) {
-  const previewBookings = previewBookingId
+  const displayedBookings = previewBookingId
     ? availability.bookings?.filter((booking) => booking.id === previewBookingId)
-    : undefined;
-  const displayedBookings =
-    previewBookingId && (!previewBookings || previewBookings.length === 0)
-      ? availability.bookings
-      : previewBookings || availability.bookings;
+    : availability.bookings;
+  const isPreviewBookingMissing =
+    Boolean(previewBookingId) && (!displayedBookings || displayedBookings.length === 0);
 
   const isMyPendingPreview =
     displayedBookings?.length === 1 &&
@@ -65,7 +63,9 @@ export function BookingDetailModal({
             )}
           </div>
 
-          {displayedBookings && displayedBookings.length > 0 ? (
+          {isPreviewBookingMissing ? (
+            <p className="text-center text-gray-500 py-8">找不到該申請資料</p>
+          ) : displayedBookings && displayedBookings.length > 0 ? (
             <div className="space-y-3">
               <h3 className="font-semibold">{isMyPendingPreview ? '申請預覽' : '預約列表'}</h3>
               {displayedBookings.map((booking) => (

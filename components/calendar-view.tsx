@@ -325,7 +325,7 @@ export function CalendarView({
             }}
             availability={selectedAvailability}
             currentUserId={currentUserId}
-            previewBookingId={previewBookingId || undefined}
+            previewBookingId={previewBookingId}
           />
         </>
       )}
