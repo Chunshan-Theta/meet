@@ -25,9 +25,13 @@ export function BookingDetailModal({
   currentUserId,
   previewBookingId,
 }: BookingDetailModalProps) {
-  const displayedBookings = previewBookingId
+  const previewBookings = previewBookingId
     ? availability.bookings?.filter((booking) => booking.id === previewBookingId)
-    : availability.bookings;
+    : undefined;
+  const displayedBookings =
+    previewBookingId && (!previewBookings || previewBookings.length === 0)
+      ? availability.bookings
+      : previewBookings || availability.bookings;
 
   const isMyPendingPreview =
     displayedBookings?.length === 1 &&

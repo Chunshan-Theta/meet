@@ -55,17 +55,16 @@ export function CalendarView({
   };
 
   const handleAvailabilityClick = (availability: AvailabilityWithCapacity) => {
+    setSelectedAvailability(availability);
+
     const myBooking = availability.bookings?.find((b) => b.guestId === currentUserId);
     const myPendingBooking = myBooking?.status === 'PENDING' ? myBooking : null;
 
     if (myPendingBooking) {
-      setSelectedAvailability(availability);
       setPreviewBookingId(myPendingBooking.id);
       setShowDetailModal(true);
       return;
     }
-
-    setSelectedAvailability(availability);
     setPreviewBookingId(null);
 
     if (myBooking || currentUserRole === Role.TEACHER) {
