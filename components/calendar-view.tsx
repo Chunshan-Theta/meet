@@ -54,12 +54,21 @@ export function CalendarView({
   };
 
   const handleAvailabilityClick = (availability: AvailabilityWithCapacity) => {
+    const myBooking = availability.bookings?.find((b) => b.guestId === currentUserId);
+    const myPendingBooking = myBooking?.status === 'PENDING' ? myBooking : null;
+
+    if (myPendingBooking) {
+      setSelectedAvailability({
+        ...availability,
+        bookings: [myPendingBooking],
+      });
+      setShowDetailModal(true);
+      return;
+    }
+
     setSelectedAvailability(availability);
 
-    // Check if current user has a booking in this slot
-    const hasMyBooking = availability.bookings?.some((b) => b.guestName === currentUserId);
-
-    if (hasMyBooking || currentUserRole === Role.TEACHER) {
+    if (myBooking || currentUserRole === Role.TEACHER) {
       // Show details
       setShowDetailModal(true);
     } else if (currentUserRole === Role.STUDENT && availability.remainingCapacity > 0) {
@@ -261,7 +270,7 @@ export function CalendarView({
                   <div className="space-y-1">
                     {dayAvailabilities.map((avail) => {
                       const myBooking = avail.bookings?.find(
-                        (b) => b.guestName === currentUserId
+                        (b) => b.guestId === currentUserId
                       );
                       const isFullyBooked = avail.remainingCapacity === 0;
 
@@ -311,6 +320,7 @@ export function CalendarView({
             open={showDetailModal}
             onOpenChange={setShowDetailModal}
             availability={selectedAvailability}
+            currentUserId={currentUserId}
           />
         </>
       )}

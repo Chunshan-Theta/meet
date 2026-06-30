@@ -14,13 +14,20 @@ interface BookingDetailModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   availability: AvailabilityWithCapacity;
+  currentUserId?: string;
 }
 
 export function BookingDetailModal({
   open,
   onOpenChange,
   availability,
+  currentUserId,
 }: BookingDetailModalProps) {
+  const isMyPendingPreview =
+    availability.bookings?.length === 1 &&
+    availability.bookings[0].guestId === currentUserId &&
+    availability.bookings[0].status === 'PENDING';
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
@@ -50,7 +57,7 @@ export function BookingDetailModal({
 
           {availability.bookings && availability.bookings.length > 0 ? (
             <div className="space-y-3">
-              <h3 className="font-semibold">預約列表</h3>
+              <h3 className="font-semibold">{isMyPendingPreview ? '申請預覽' : '預約列表'}</h3>
               {availability.bookings.map((booking) => (
                 <Card key={booking.id}>
                   <CardHeader>
