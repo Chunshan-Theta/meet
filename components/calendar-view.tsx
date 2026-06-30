@@ -57,8 +57,11 @@ export function CalendarView({
   const handleAvailabilityClick = (availability: AvailabilityWithCapacity) => {
     setSelectedAvailability(availability);
 
-    const myBooking = availability.bookings?.find((b) => b.guestId === currentUserId);
-    const myPendingBooking = myBooking?.status === 'PENDING' ? myBooking : null;
+    const currentUserBooking = availability.bookings?.find(
+      (b) => b.guestId === currentUserId
+    );
+    const myPendingBooking =
+      currentUserBooking?.status === 'PENDING' ? currentUserBooking : null;
 
     if (myPendingBooking) {
       setPreviewBookingId(myPendingBooking.id);
@@ -67,7 +70,7 @@ export function CalendarView({
     }
     setPreviewBookingId(null);
 
-    if (myBooking || currentUserRole === Role.TEACHER) {
+    if (currentUserBooking || currentUserRole === Role.TEACHER) {
       // Show details
       setShowDetailModal(true);
     } else if (currentUserRole === Role.STUDENT && availability.remainingCapacity > 0) {

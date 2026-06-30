@@ -64,7 +64,9 @@ export function BookingDetailModal({
           </div>
 
           {isPreviewBookingMissing ? (
-            <p className="text-center text-gray-500 py-8">找不到該申請資料</p>
+            <div role="alert" className="text-center text-gray-500 py-8">
+              找不到該申請資料
+            </div>
           ) : displayedBookings && displayedBookings.length > 0 ? (
             <div className="space-y-3">
               <h3 className="font-semibold">{isMyPendingPreview ? '申請預覽' : '預約列表'}</h3>
