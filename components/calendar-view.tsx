@@ -44,6 +44,7 @@ export function CalendarView({
     useState<AvailabilityWithCapacity | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [previewBookingId, setPreviewBookingId] = useState<string | null>(null);
 
   const handleTeacherChange = (teacherId: string) => {
     const params = new URLSearchParams();
@@ -58,15 +59,14 @@ export function CalendarView({
     const myPendingBooking = myBooking?.status === 'PENDING' ? myBooking : null;
 
     if (myPendingBooking) {
-      setSelectedAvailability({
-        ...availability,
-        bookings: [myPendingBooking],
-      });
+      setSelectedAvailability(availability);
+      setPreviewBookingId(myPendingBooking.id);
       setShowDetailModal(true);
       return;
     }
 
     setSelectedAvailability(availability);
+    setPreviewBookingId(null);
 
     if (myBooking || currentUserRole === Role.TEACHER) {
       // Show details
@@ -318,9 +318,15 @@ export function CalendarView({
           />
           <BookingDetailModal
             open={showDetailModal}
-            onOpenChange={setShowDetailModal}
+            onOpenChange={(open) => {
+              setShowDetailModal(open);
+              if (!open) {
+                setPreviewBookingId(null);
+              }
+            }}
             availability={selectedAvailability}
             currentUserId={currentUserId}
+            previewBookingId={previewBookingId || undefined}
           />
         </>
       )}
