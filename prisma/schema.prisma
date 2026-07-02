@@ -46,10 +46,12 @@ model Booking {
   status          String       @default("PENDING") 
   category        String
   topic           String
+  agenda          String       @default("")
   currentProgress String
   expectedOutcome String
   attachmentUrl   String?
   rejectionReason String?
+  teacherComment  String?
   createdAt       DateTime     @default(now())
   feedback        Feedback?
 }

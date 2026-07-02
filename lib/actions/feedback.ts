@@ -140,3 +140,34 @@ export async function getAllFeedbacks() {
     return [];
   }
 }
+
+export async function getTeacherComments() {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return [];
+    }
+
+    const bookings = await prisma.booking.findMany({
+      where: {
+        status: BookingStatus.COMPLETED,
+        NOT: { teacherComment: null },
+      },
+      select: {
+        id: true,
+        topic: true,
+        date: true,
+        startTime: true,
+        teacherComment: true,
+        host: { select: { id: true, name: true } },
+        guest: { select: { id: true, name: true } },
+      },
+      orderBy: { date: 'desc' },
+    });
+
+    return bookings;
+  } catch (error) {
+    console.error('Get teacher comments error:', error);
+    return [];
+  }
+}

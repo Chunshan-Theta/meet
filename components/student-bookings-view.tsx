@@ -103,6 +103,27 @@ export function StudentBookingsView({ bookings }: StudentBookingsViewProps) {
                   <span className="font-medium">期望結果:</span>{' '}
                   {booking.expectedOutcome}
                 </div>
+                {(booking as any).agenda && (
+                  <div>
+                    <span className="font-medium">討論大綱:</span>
+                    <p className="mt-1 whitespace-pre-wrap bg-gray-50 p-2 rounded text-gray-700">
+                      {(booking as any).agenda}
+                    </p>
+                  </div>
+                )}
+                {booking.attachmentUrl && (
+                  <div>
+                    <span className="font-medium">附件連結:</span>{' '}
+                    <a
+                      href={booking.attachmentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 underline break-all"
+                    >
+                      {booking.attachmentUrl}
+                    </a>
+                  </div>
+                )}
               </div>
               <div className="flex gap-2">
                 {(booking.status === BookingStatus.PENDING ||

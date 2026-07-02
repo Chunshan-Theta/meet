@@ -18,6 +18,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { resolveBooking } from '@/lib/actions/booking';
 import { BookingStatus } from '@/lib/constants';
 
+const STANDARD_REASONS = [
+  '內容太模糊/不詳細/太簡略',
+  '討論事項不明確',
+  '進度不夠/無進度',
+] as const;
+
 interface RequestsManagerProps {
   requests: (Booking & { guest: { name: string; email: string } })[];
 }
@@ -27,7 +33,8 @@ export function RequestsManager({ requests }: RequestsManagerProps) {
   const [isPending, startTransition] = useTransition();
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
-  const [rejectionReason, setRejectionReason] = useState('');
+  const [selectedReasons, setSelectedReasons] = useState<string[]>([]);
+  const [additionalComment, setAdditionalComment] = useState('');
 
   const handleApprove = (booking: Booking) => {
     if (!confirm('確定要核准此預約嗎？')) return;
@@ -48,11 +55,23 @@ export function RequestsManager({ requests }: RequestsManagerProps) {
 
   const handleReject = (booking: Booking) => {
     setSelectedBooking(booking);
+    setSelectedReasons([]);
+    setAdditionalComment('');
     setShowRejectModal(true);
+  };
+
+  const toggleReason = (reason: string) => {
+    setSelectedReasons((prev) =>
+      prev.includes(reason) ? prev.filter((r) => r !== reason) : [...prev, reason]
+    );
   };
 
   const handleRejectSubmit = () => {
     if (!selectedBooking) return;
+
+    const parts: string[] = [...selectedReasons];
+    if (additionalComment.trim()) parts.push(additionalComment.trim());
+    const rejectionReason = parts.join('；') || undefined;
 
     startTransition(async () => {
       const result = await resolveBooking({
@@ -63,7 +82,6 @@ export function RequestsManager({ requests }: RequestsManagerProps) {
 
       if (result.success) {
         setShowRejectModal(false);
-        setRejectionReason('');
         router.refresh();
       } else {
         alert(result.error);
@@ -102,9 +120,6 @@ export function RequestsManager({ requests }: RequestsManagerProps) {
                 {(booking.guest as any).email}
               </div>
               <div>
-                <span className="font-medium">類別:</span> {booking.category}
-              </div>
-              <div>
                 <span className="font-medium">目前進度:</span>{' '}
                 {booking.currentProgress}
               </div>
@@ -112,6 +127,27 @@ export function RequestsManager({ requests }: RequestsManagerProps) {
                 <span className="font-medium">期望結果:</span>{' '}
                 {booking.expectedOutcome}
               </div>
+              {(booking as any).agenda && (
+                <div>
+                  <span className="font-medium">討論大綱:</span>
+                  <p className="mt-1 whitespace-pre-wrap bg-gray-50 p-2 rounded text-gray-700">
+                    {(booking as any).agenda}
+                  </p>
+                </div>
+              )}
+              {booking.attachmentUrl && (
+                <div>
+                  <span className="font-medium">附件連結:</span>{' '}
+                  <a
+                    href={booking.attachmentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 underline break-all"
+                  >
+                    {booking.attachmentUrl}
+                  </a>
+                </div>
+              )}
             </div>
             <div className="flex gap-2">
               <Button
@@ -136,16 +172,33 @@ export function RequestsManager({ requests }: RequestsManagerProps) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>拒絕預約</DialogTitle>
-            <DialogDescription>請說明拒絕原因（選填）</DialogDescription>
+            <DialogDescription>請選擇退件理由（可複選），並可補充說明</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="rejectionReason">拒絕原因</Label>
+              <Label>標準退件理由</Label>
+              <div className="space-y-2">
+                {STANDARD_REASONS.map((reason) => (
+                  <label key={reason} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedReasons.includes(reason)}
+                      onChange={() => toggleReason(reason)}
+                      className="h-4 w-4 rounded border-gray-300"
+                    />
+                    <span className="text-sm">{reason}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="additionalComment">補充說明（選填）</Label>
               <Textarea
-                id="rejectionReason"
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-                rows={4}
+                id="additionalComment"
+                value={additionalComment}
+                onChange={(e) => setAdditionalComment(e.target.value)}
+                rows={3}
+                placeholder="如有其他說明請在此補充..."
               />
             </div>
           </div>
