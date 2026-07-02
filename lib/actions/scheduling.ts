@@ -18,6 +18,7 @@ export type AvailabilityWithCapacity = {
   pendingCount: number;
   bookings?: Array<{
     id: string;
+    guestId: string;
     guestName: string;
     status: string;
     category: string;
@@ -130,6 +131,7 @@ export async function getAvailabilities(
         pendingCount,
         bookings: bookingsForDate.map((b: any) => ({
           id: b.id,
+          guestId: b.guestId,
           guestName: b.guest.name,
           status: b.status,
           category: b.category,

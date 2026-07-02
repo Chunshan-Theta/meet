@@ -44,6 +44,7 @@ export function CalendarView({
     useState<AvailabilityWithCapacity | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [previewBookingId, setPreviewBookingId] = useState<string | null>(null);
 
   const handleTeacherChange = (teacherId: string) => {
     const params = new URLSearchParams();
@@ -56,10 +57,20 @@ export function CalendarView({
   const handleAvailabilityClick = (availability: AvailabilityWithCapacity) => {
     setSelectedAvailability(availability);
 
-    // Check if current user has a booking in this slot
-    const hasMyBooking = availability.bookings?.some((b) => b.guestName === currentUserId);
+    const currentUserBooking = availability.bookings?.find(
+      (b) => b.guestId === currentUserId
+    );
+    const myPendingBooking =
+      currentUserBooking?.status === 'PENDING' ? currentUserBooking : null;
 
-    if (hasMyBooking || currentUserRole === Role.TEACHER) {
+    if (myPendingBooking) {
+      setPreviewBookingId(myPendingBooking.id);
+      setShowDetailModal(true);
+      return;
+    }
+    setPreviewBookingId(null);
+
+    if (currentUserBooking || currentUserRole === Role.TEACHER) {
       // Show details
       setShowDetailModal(true);
     } else if (currentUserRole === Role.STUDENT && availability.remainingCapacity > 0) {
@@ -261,7 +272,7 @@ export function CalendarView({
                   <div className="space-y-1">
                     {dayAvailabilities.map((avail) => {
                       const myBooking = avail.bookings?.find(
-                        (b) => b.guestName === currentUserId
+                        (b) => b.guestId === currentUserId
                       );
                       const isFullyBooked = avail.remainingCapacity === 0;
 
@@ -309,8 +320,15 @@ export function CalendarView({
           />
           <BookingDetailModal
             open={showDetailModal}
-            onOpenChange={setShowDetailModal}
+            onOpenChange={(open) => {
+              setShowDetailModal(open);
+              if (!open) {
+                setPreviewBookingId(null);
+              }
+            }}
             availability={selectedAvailability}
+            currentUserId={currentUserId}
+            previewBookingId={previewBookingId}
           />
         </>
       )}

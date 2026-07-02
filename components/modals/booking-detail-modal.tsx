@@ -14,13 +14,28 @@ interface BookingDetailModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   availability: AvailabilityWithCapacity;
+  currentUserId?: string;
+  previewBookingId?: string | null;
 }
 
 export function BookingDetailModal({
   open,
   onOpenChange,
   availability,
+  currentUserId,
+  previewBookingId,
 }: BookingDetailModalProps) {
+  const displayedBookings = previewBookingId
+    ? availability.bookings?.filter((booking) => booking.id === previewBookingId)
+    : availability.bookings;
+  const isPreviewBookingMissing =
+    Boolean(previewBookingId) && (!displayedBookings || displayedBookings.length === 0);
+
+  const isMyPendingPreview =
+    displayedBookings?.length === 1 &&
+    displayedBookings[0].guestId === currentUserId &&
+    displayedBookings[0].status === 'PENDING';
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
@@ -48,10 +63,14 @@ export function BookingDetailModal({
             )}
           </div>
 
-          {availability.bookings && availability.bookings.length > 0 ? (
+          {isPreviewBookingMissing ? (
+            <div role="alert" className="text-center text-gray-500 py-8">
+              找不到該申請資料
+            </div>
+          ) : displayedBookings && displayedBookings.length > 0 ? (
             <div className="space-y-3">
-              <h3 className="font-semibold">預約列表</h3>
-              {availability.bookings.map((booking) => (
+              <h3 className="font-semibold">{isMyPendingPreview ? '申請預覽' : '預約列表'}</h3>
+              {displayedBookings.map((booking) => (
                 <Card key={booking.id}>
                   <CardHeader>
                     <CardTitle className="text-base flex items-center justify-between">
