@@ -46,8 +46,10 @@ export async function createBooking(data: {
   date: string;
   category: string;
   topic: string;
+  agenda: string;
   currentProgress: string;
   expectedOutcome: string;
+  attachmentUrl?: string;
 }): Promise<Result<{ success: boolean; bookingId?: string }>> {
   try {
     const session = await auth();
@@ -58,6 +60,11 @@ export async function createBooking(data: {
     // Validate category
     if (!isValidCategory(data.category)) {
       return { success: false, error: '無效的預約類別' };
+    }
+
+    // Require at least agenda or attachmentUrl
+    if (!data.agenda.trim() && !data.attachmentUrl?.trim()) {
+      return { success: false, error: '請填寫討論大綱或提供附件連結（二擇一，不可全空）' };
     }
 
     // Check eligibility
@@ -87,8 +94,10 @@ export async function createBooking(data: {
         status: BookingStatus.PENDING,
         category: data.category,
         topic: data.topic,
+        agenda: data.agenda,
         currentProgress: data.currentProgress,
         expectedOutcome: data.expectedOutcome,
+        attachmentUrl: data.attachmentUrl || null,
       },
     });
 
@@ -183,7 +192,8 @@ export async function resolveBooking(data: {
 }
 
 export async function completeBooking(
-  bookingId: string
+  bookingId: string,
+  teacherComment?: string
 ): Promise<Result<{ success: boolean }>> {
   try {
     const session = await auth();
@@ -203,7 +213,10 @@ export async function completeBooking(
     // Update status to completed
     await prisma.booking.update({
       where: { id: bookingId },
-      data: { status: BookingStatus.COMPLETED },
+      data: {
+        status: BookingStatus.COMPLETED,
+        teacherComment: teacherComment?.trim() || null,
+      },
     });
 
     return { success: true };

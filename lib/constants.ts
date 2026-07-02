@@ -19,11 +19,7 @@ export const BookingStatus = {
 export type BookingStatusType = typeof BookingStatus[keyof typeof BookingStatus];
 
 export const Category = {
-  THESIS_GUIDANCE: '論文指導',
-  COURSE_CONSULTATION: '課程諮詢',
-  RESEARCH_DISCUSSION: '研究討論',
-  CAREER_PLANNING: '職涯規劃',
-  OTHER: '其他',
+  THESIS_PROGRESS_DISCUSSION: '論文進度討論',
 } as const;
 
 export type CategoryType = typeof Category[keyof typeof Category];

@@ -5,6 +5,16 @@ import { useRouter } from 'next/navigation';
 import { Booking, Feedback } from '@prisma/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { completeBooking, resolveBooking } from '@/lib/actions/booking';
 import { BookingStatus } from '@/lib/constants';
 import { ViewFeedbackModal } from '@/components/modals/view-feedback-modal';
@@ -21,13 +31,25 @@ export function TeacherBookingsView({ bookings }: TeacherBookingsViewProps) {
   const [isPending, startTransition] = useTransition();
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [showCompleteDialog, setShowCompleteDialog] = useState(false);
+  const [completingBookingId, setCompletingBookingId] = useState<string | null>(null);
+  const [teacherComment, setTeacherComment] = useState('');
 
-  const handleComplete = (bookingId: string) => {
-    if (!confirm('確定要將此預約標記為完成嗎？')) return;
+  const handleCompleteClick = (bookingId: string) => {
+    setCompletingBookingId(bookingId);
+    setTeacherComment('');
+    setShowCompleteDialog(true);
+  };
+
+  const handleCompleteConfirm = () => {
+    if (!completingBookingId) return;
 
     startTransition(async () => {
-      const result = await completeBooking(bookingId);
+      const result = await completeBooking(completingBookingId, teacherComment || undefined);
       if (result.success) {
+        setShowCompleteDialog(false);
+        setCompletingBookingId(null);
+        setTeacherComment('');
         router.refresh();
       } else {
         alert(result.error);
@@ -105,9 +127,6 @@ export function TeacherBookingsView({ bookings }: TeacherBookingsViewProps) {
             <CardContent className="space-y-4">
               <div className="space-y-2 text-sm">
                 <div>
-                  <span className="font-medium">類別:</span> {booking.category}
-                </div>
-                <div>
                   <span className="font-medium">目前進度:</span>{' '}
                   {booking.currentProgress}
                 </div>
@@ -115,12 +134,41 @@ export function TeacherBookingsView({ bookings }: TeacherBookingsViewProps) {
                   <span className="font-medium">期望結果:</span>{' '}
                   {booking.expectedOutcome}
                 </div>
+                {booking.agenda && (
+                  <div>
+                    <span className="font-medium">討論大綱:</span>
+                    <p className="mt-1 whitespace-pre-wrap bg-gray-50 p-2 rounded text-gray-700">
+                      {booking.agenda}
+                    </p>
+                  </div>
+                )}
+                {booking.attachmentUrl && (
+                  <div>
+                    <span className="font-medium">附件連結:</span>{' '}
+                    <a
+                      href={booking.attachmentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 underline break-all"
+                    >
+                      {booking.attachmentUrl}
+                    </a>
+                  </div>
+                )}
+                {booking.teacherComment && (
+                  <div>
+                    <span className="font-medium">教師反饋:</span>
+                    <p className="mt-1 whitespace-pre-wrap bg-amber-50 p-2 rounded text-gray-700">
+                      {booking.teacherComment}
+                    </p>
+                  </div>
+                )}
               </div>
               <div className="flex gap-2">
                 {booking.status === BookingStatus.APPROVED && (
                   <>
                     <Button
-                      onClick={() => handleComplete(booking.id)}
+                      onClick={() => handleCompleteClick(booking.id)}
                       disabled={isPending}
                     >
                       標記完成
@@ -139,7 +187,7 @@ export function TeacherBookingsView({ bookings }: TeacherBookingsViewProps) {
                     variant="outline"
                     onClick={() => handleViewFeedback(booking)}
                   >
-                    查看反饋
+                    查看學生反饋
                   </Button>
                 )}
               </div>
@@ -147,6 +195,36 @@ export function TeacherBookingsView({ bookings }: TeacherBookingsViewProps) {
           </Card>
         ))}
       </div>
+
+      {/* Complete booking dialog */}
+      <Dialog open={showCompleteDialog} onOpenChange={setShowCompleteDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>標記會議完成</DialogTitle>
+            <DialogDescription>
+              是否針對本次討論留下教師反饋？反饋將公開至反思牆供全體成員觀摩（選填）
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="teacherComment">教師反饋意見（選填）</Label>
+            <Textarea
+              id="teacherComment"
+              value={teacherComment}
+              onChange={(e) => setTeacherComment(e.target.value)}
+              rows={5}
+              placeholder="填寫對此次論文進度討論的觀察、建議或評語..."
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCompleteDialog(false)}>
+              取消
+            </Button>
+            <Button onClick={handleCompleteConfirm} disabled={isPending}>
+              {isPending ? '處理中...' : '確認完成'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {selectedBooking && (
         <ViewFeedbackModal
