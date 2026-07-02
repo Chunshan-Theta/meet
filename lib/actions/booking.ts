@@ -64,7 +64,7 @@ export async function createBooking(data: {
 
     // Require at least agenda or attachmentUrl
     if (!data.agenda.trim() && !data.attachmentUrl?.trim()) {
-      return { success: false, error: '請填寫討論大綱或提供附件連結' };
+      return { success: false, error: '請填寫討論大綱或提供附件連結（二擇一，不可全空）' };
     }
 
     // Check eligibility

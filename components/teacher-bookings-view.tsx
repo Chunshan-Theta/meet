@@ -134,11 +134,11 @@ export function TeacherBookingsView({ bookings }: TeacherBookingsViewProps) {
                   <span className="font-medium">期望結果:</span>{' '}
                   {booking.expectedOutcome}
                 </div>
-                {(booking as any).agenda && (
+                {booking.agenda && (
                   <div>
                     <span className="font-medium">討論大綱:</span>
                     <p className="mt-1 whitespace-pre-wrap bg-gray-50 p-2 rounded text-gray-700">
-                      {(booking as any).agenda}
+                      {booking.agenda}
                     </p>
                   </div>
                 )}
@@ -155,11 +155,11 @@ export function TeacherBookingsView({ bookings }: TeacherBookingsViewProps) {
                     </a>
                   </div>
                 )}
-                {(booking as any).teacherComment && (
+                {booking.teacherComment && (
                   <div>
                     <span className="font-medium">教師反饋:</span>
                     <p className="mt-1 whitespace-pre-wrap bg-amber-50 p-2 rounded text-gray-700">
-                      {(booking as any).teacherComment}
+                      {booking.teacherComment}
                     </p>
                   </div>
                 )}
