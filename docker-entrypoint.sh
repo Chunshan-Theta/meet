@@ -7,11 +7,9 @@ echo "🚀 Starting application..."
 DB_PATH=$(echo $DATABASE_URL | sed 's/file://')
 echo "📍 Database path: $DB_PATH"
 
-# 无论数据库是否已存在，都执行 migrate deploy 以补齐新增迁移
+# Always run migrate deploy to apply any pending migrations
 if [ ! -f "$DB_PATH" ]; then
   echo "📦 Database not found, initializing..."
-else
-  echo "✅ Using existing database, checking pending migrations..."
 fi
 
 npx prisma migrate deploy
