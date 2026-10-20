@@ -5,6 +5,7 @@ FROM node:22-alpine AS base
 FROM base AS deps
 RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
+RUN mkdir -p /data && chown -R node:node /data
 
 # 复制 package 文件
 COPY package.json package-lock.json* ./
